@@ -3,6 +3,21 @@ import cv2
 import sys
 import matplotlib.pyplot as plt
 
+def morphology_diff(contrast_green, clahe):
+    #apply open / closing morphology
+    #1st
+    open1 = cv2.morphologyEx(contrast_green, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(5,5)), iterations = 1)
+    close1 = cv2.morphologyEx(open1, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(5,5)), iterations = 1)
+    #2nd
+    open2 = cv2.morphologyEx(close1, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(11,11)), iterations = 1)
+    close2 = cv2.morphologyEx(open2, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(11,11)), iterations = 1)
+    #3rd
+    open3 = cv2.morphologyEx(close2, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(23,23)), iterations = 1)
+    close3 = cv2.morphologyEx(open3, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(23,23)), iterations = 1)	
+    #make diff between contrast_green & blured vision
+    contrast_morph = cv2.subtract(close3, contrast_green)
+    return clahe.apply(contrast_morph)
+
 def detect_vessel(org_image):
     copy_org_image = org_image.copy()
     #make split of red green blue colors
@@ -10,18 +25,10 @@ def detect_vessel(org_image):
     #create a CLAHE object
     clahe = cv2.createCLAHE(clipLimit=5.0, tileGridSize=(8,8))
     contrast_green = clahe.apply(green)
-    
-    r1 = cv2.morphologyEx(contrast_green, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(5,5)), iterations = 1)
-    R1 = cv2.morphologyEx(r1, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(5,5)), iterations = 1)
 
-    r2 = cv2.morphologyEx(R1, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(11,11)), iterations = 1)
-    R2 = cv2.morphologyEx(r2, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(11,11)), iterations = 1)
+    morph_image = morphology_diff(contrast_green, clahe)
     
-    r3 = cv2.morphologyEx(R2, cv2.MORPH_OPEN, cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(23,23)), iterations = 1)
-    R3 = cv2.morphologyEx(r3, cv2.MORPH_CLOSE, cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(23,23)), iterations = 1)	
-    f4 = cv2.subtract(R3,contrast_green)
-    f5 = clahe.apply(f4)
-    plt.imshow(f5)
+    plt.imshow(morph_image)
     plt.show()
 
     return 0
