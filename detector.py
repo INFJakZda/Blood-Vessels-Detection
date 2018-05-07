@@ -30,6 +30,25 @@ def remove_noise(morph_image):
     new_img = cv2.erode(fin_thr, cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(3,3)), iterations=1)	
     return new_img
 
+def remove_blob(clear_image, org_image):
+    fundus_eroded = cv2.bitwise_not(clear_image)	
+    xmask = np.ones(org_image.shape[:2], dtype="uint8") * 255
+    x1, xcontours, xhierarchy = cv2.findContours(fundus_eroded.copy(),cv2.RETR_LIST,cv2.CHAIN_APPROX_SIMPLE)	
+    for cnt in xcontours:
+        shape = "unidentified"
+        peri = cv2.arcLength(cnt, True)
+        approx = cv2.approxPolyDP(cnt, 0.04 * peri, False)   				
+        if len(approx) > 4 and cv2.contourArea(cnt) <= 3000 and cv2.contourArea(cnt) >= 100:
+            shape = "circle"	
+        else:
+            shape = "veins"
+        if(shape=="circle"):
+            cv2.drawContours(xmask, [cnt], -1, 0, -1)	
+	
+    finimage = cv2.bitwise_and(fundus_eroded,fundus_eroded,mask=xmask)	
+    blood_vessels = cv2.bitwise_not(finimage)
+    return blood_vessels	
+
 def detect_vessel(org_image):
     copy_org_image = org_image.copy()
     #make split of red green blue colors
@@ -41,15 +60,26 @@ def detect_vessel(org_image):
     morph_image = morphology_diff(contrast_green, clahe)
     #remove noise
     clear_image = remove_noise(morph_image)
-
-    return clear_image
+    #remove blobs
+    fin_image = remove_blob(clear_image, org_image)
+    i = 0
+    j = 0
+    for gr, fin in zip(green, fin_image):
+        for g, f in zip(gr, fin):
+            if(f == 0):
+                green[i][j] = 255
+            j = j + 1
+        j = 0
+        i = i + 1
+    #return fin_image
+    return cv2.merge(( blue, green, red))
 
 
 if __name__ == "__main__":
     data_catalog = "data"
     files_names = [x for x in os.listdir(data_catalog) if os.path.isfile(os.path.join(data_catalog,x))]
     files_names.sort()
-    out_catalog = "out"
+    out_catalog = "out2"
     for file_name in files_names:
         out_name = file_name.split('.')[0]
         org_image = cv2.imread(data_catalog + '/' + file_name)
